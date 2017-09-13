@@ -22,11 +22,12 @@
 
 
 #define VENDOR_READ_REQUEST_TYPE	0xc0
-#define VENDOR_READ_REQUEST		0x01
+#define VENDOR_READ_REQUEST			0x01
 
 #define VENDOR_WRITE_REQUEST_TYPE	0x40
 #define VENDOR_WRITE_REQUEST		0x01
 
+void handle_error(int);
 
 int get_device_vid()
 {
@@ -41,7 +42,7 @@ int get_device_pid()
 /* Get current GPIO register from PL2303 */
 char gpio_read_reg(libusb_device_handle *h)
 {
-	char buf;
+	unsigned char buf;
 	int bytes = libusb_control_transfer(
 		h,             // handle obtained with usb_open()
 		VENDOR_READ_REQUEST_TYPE, // bRequestType
@@ -69,21 +70,21 @@ void gpio_write_reg(libusb_device_handle *h, unsigned char reg)
 		1000
 		);
 	handle_error(bytes);
-	
+
 }
 
 int gpio_dir_shift(int gpio) {
-	if (gpio == 0) 
+	if (gpio == 0)
 		return 4;
-	if (gpio == 1) 
+	if (gpio == 1)
 		return 5;
 	return 4; /* default to 0 */
 }
 
 int gpio_val_shift(int gpio) {
-	if (gpio == 0) 
+	if (gpio == 0)
 		return 6;
-	if (gpio == 1) 
+	if (gpio == 1)
 		return 7;
 	return 6; /* default to 0 */
 }

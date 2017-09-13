@@ -18,7 +18,7 @@
 
 int get_device_vid();
 int get_device_pid();
-void check_handle(libusb_device_handle **h, int vid, int pid, const char* manuf, const char* product, const char* serial);
+void check_handle(libusb_device_handle **h, int vid, int pid, const char* manuf, const char* product, const char* serial, const int bus, const int port);
 int gpio_read(libusb_device_handle *h, int gpio);
 void gpio_in(libusb_device_handle *h, int gpio, int pullup);
 void gpio_out(libusb_device_handle *h, int gpio, int value);
@@ -26,7 +26,7 @@ void gpio_out(libusb_device_handle *h, int gpio, int value);
 
 void handle_error(int ret)
 {
-	if (ret<0) { 
+	if (ret<0) {
 		perror("Failed to write to PL2303 device");
 		fprintf(stderr, "Have you installed the correct udev rules?\n");
 		exit(1);
@@ -40,14 +40,16 @@ static struct option long_options[] =
 	{"gpio",    required_argument,       0, 'g'},
 	{"in",      optional_argument,       0, 'i'},
 	{"out",     required_argument,       0, 'o'},
-	{"sleep",   required_argument,       0, 's'},
 	{"read",    no_argument,             0, 'r'},
-	{"product", required_argument,       0, 'p'},
-	{"manuf",   required_argument,       0, 'm'},
+	{"sleep",   required_argument,       0, 's'},
+	{"product", required_argument,       0, 'd'},
 	{"serial",  required_argument,       0, 'n'},
+	{"manuf",   required_argument,       0, 'm'},
+	{"bus",     required_argument,       0, 'b'},
+	{"port",    required_argument,       0, 'p'},
 	{0, 0, 0, 0}
 };
-  
+
 void usage(const char *self)
 {
 	printf("PL2303HXA/CP2103 userspace GPIO control tool\n"
@@ -57,10 +59,12 @@ void usage(const char *self)
 	       "\t --product=blah    - Use device with this 'product' string\n"
 	       "\t --serial=blah     - Use device with this 'serial' string\n"
 	       "\t --manuf=blah      - Use device with this 'manufacturer' string\n"
+	       "\t --bus=blah        - Use device plugged on this bus\n"
+	       "\t --port=blah       - Use device plugged at this port\n"
 	       "\t -g/--gpio  n      - select GPIO, n=0, 1\n"
 	       "\t -i/--in           - configure GPIO as input\n"
 	       "\t -o/--out v        - configure GPIO as output with value v\n"
-	       "\t -r/--read v       - Read current GPIO value\n\n"
+	       "\t -r/--read         - Read current GPIO value\n\n"
 	       "\t -s/--sleep v      - Delay for v ms\n\n"
 	       "Examples: \n"
 	       "\t%s --gpio=1 --out 1\n"
@@ -75,11 +79,14 @@ int main(int argc, char* argv[])
 {
 	int c;
 	libusb_device_handle *h = NULL;
-	int gpio=0; 
-	const char *product = NULL; 
+	int gpio=0;
+	const char *product = NULL;
 	const char *manuf = NULL;
-	const char *serial = NULL;  
-	if (argc == 1) 
+	const char *serial = NULL;
+	int bus = -2;
+	int port = -2;
+
+	if (argc == 1)
 	{
 		usage(argv[0]);
 		exit(1);
@@ -87,23 +94,29 @@ int main(int argc, char* argv[])
 	while(1) {
 		int option_index = 0;
 
-		c = getopt_long (argc, argv, "hg:i:o:r:s:",
+		c = getopt_long (argc, argv, "hg:i::o:rs:d:n:m:b:p:",
 				 long_options, &option_index);
 
 		/* Detect the end of the options. */
 		if (c == -1)
 			break;
-		
+
 		switch (c)
 		{
-		case 'p':
+		case 'd':
 			product = optarg;
+			break;
+		case 'n':
+			serial = optarg;
 			break;
 		case 'm':
 			manuf = optarg;
 			break;
-		case 'n':
-			serial = optarg;
+		case 'b':
+			bus = atoi(optarg);
+			break;
+		case 'p':
+			port = atoi(optarg);
 			break;
 		case 'h':
 			usage(argv[0]);
@@ -114,20 +127,20 @@ int main(int argc, char* argv[])
 			break;
 		case 'i':
 		{
-			int v=0; 
-			check_handle(&h, get_device_vid(), get_device_pid(), manuf, product, serial);
+			int v=0;
+			check_handle(&h, get_device_vid(), get_device_pid(), manuf, product, serial, bus, port);
 			if (optarg)
 				v = atoi(optarg);
-			gpio_in(h, gpio, v); 
+			gpio_in(h, gpio, v);
 			break;
 		}
 		case 'o':
 		{
-			int v=0; 
-			check_handle(&h, get_device_vid(), get_device_pid(), manuf, product, serial);
+			int v=0;
+			check_handle(&h, get_device_vid(), get_device_pid(), manuf, product, serial, bus, port);
 			if (optarg)
 				v = atoi(optarg);
-			gpio_out(h, gpio, v); 
+			gpio_out(h, gpio, v);
 			break;
 		}
 		case 's':
@@ -136,10 +149,10 @@ int main(int argc, char* argv[])
 			usleep(n*1000);
 			break;
 		}
-		case 'r': 
+		case 'r':
 		{
-			check_handle(&h, get_device_vid(), get_device_pid(), manuf, product, serial);
-			printf("%d\n", gpio_read(h, gpio) ? 1 : 0); 
+			check_handle(&h, get_device_vid(), get_device_pid(), manuf, product, serial, bus, port);
+			printf("%d\n", gpio_read(h, gpio) ? 1 : 0);
 			break;
 		}
 

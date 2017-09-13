@@ -35,6 +35,7 @@
 #define GPIO_MASK	(GPIO_0|GPIO_1|GPIO_2|GPIO_3)
 
 
+void handle_error(int);
 
 
 int get_device_vid()
@@ -59,7 +60,7 @@ int get_device_pid()
 /* Get current GPIO register from PL2303 */
 char gpio_read_reg(libusb_device_handle *h)
 {
-	char buf;
+	unsigned char buf;
 	int bytes = libusb_control_transfer(
 		h,             // handle obtained with usb_open()
 		0xc0, // bRequestType
@@ -101,25 +102,25 @@ void gpio_out(libusb_device_handle *h, int gnum, int value)
 {
 
 	uint16_t gpio = 0;
-	switch (gnum) { 
-	case 0: 
+	switch (gnum) {
+	case 0:
 		gpio |= GPIO_0;
-		if (value) 
+		if (value)
 			gpio |= (GPIO_0 << 8);
 		break;
-	case 1: 
+	case 1:
 		gpio |= GPIO_1;
-		if (value) 
+		if (value)
 			gpio |= (GPIO_1 << 8);
 		break;
-	case 2: 
+	case 2:
 		gpio |= GPIO_2;
-		if (value) 
+		if (value)
 			gpio |= (GPIO_2 << 8);
 		break;
-	case 3: 
+	case 3:
 		gpio |= GPIO_3;
-		if (value) 
+		if (value)
 			gpio |= (GPIO_3 << 8);
 		break;
 	}
@@ -134,5 +135,6 @@ void gpio_in(libusb_device_handle *h, int gpio, int pullup)
 int gpio_read(libusb_device_handle *h, int gpio)
 {
 	printf("FixMe: don't know how to read pins on cp2103\n");
+	return -1;
 }
 
