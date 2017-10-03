@@ -39,15 +39,20 @@ int get_device_pid()
 	return I_PRODUCT_NUM;
 }
 
+//
+// http://zoobab.wdfiles.com/local--files/pl2303hxd-gpio/pl2303-gpio-sysfs.patch
+// http://www.zoobab.com/pl2303hxd-gpio
+//
+
 /* Get current GPIO register from PL2303 */
-char gpio_read_reg(libusb_device_handle *h)
+char gpio_read_reg(libusb_device_handle *h, int gpio)
 {
 	unsigned char buf;
 	int bytes = libusb_control_transfer(
 		h,             // handle obtained with usb_open()
 		VENDOR_READ_REQUEST_TYPE, // bRequestType
 		VENDOR_READ_REQUEST,      // bRequest
-		0x0081,              // wValue
+		(gpio <= 1) ? 0x0081 : 0x8d8d,   // wValue
 		0,              // wIndex
 		&buf,             // pointer to destination buffer
 		1,  // wLength
@@ -57,20 +62,19 @@ char gpio_read_reg(libusb_device_handle *h)
 	return buf;
 }
 
-void gpio_write_reg(libusb_device_handle *h, unsigned char reg)
+void gpio_write_reg(libusb_device_handle *h, unsigned char reg, int gpio)
 {
 	int bytes = libusb_control_transfer(
 		h,             // handle obtained with usb_open()
 		VENDOR_WRITE_REQUEST_TYPE, // bRequestType
 		VENDOR_WRITE_REQUEST,      // bRequest
-		1,              // wValue
+		(gpio <= 1) ? 0x0001 : 0x0d0d,   // wValue
 		reg,              // wIndex
 		0,             // pointer to destination buffer
 		0,  // wLength
 		1000
 		);
 	handle_error(bytes);
-
 }
 
 int gpio_dir_shift(int gpio) {
@@ -86,37 +90,62 @@ int gpio_val_shift(int gpio) {
 		return 6;
 	if (gpio == 1)
 		return 7;
+	if (gpio == 2)
+		return 0;
+	if (gpio == 3)
+		return 1;
 	return 6; /* default to 0 */
 }
 
 
 void gpio_out(libusb_device_handle *h, int gpio, int value)
 {
-	int shift_dir = gpio_dir_shift(gpio);
+	unsigned char reg = gpio_read_reg(h, gpio);
  	int shift_val = gpio_val_shift(gpio);
-	unsigned char reg = gpio_read_reg(h);
-	reg |= (1 << shift_dir);
+
+	if (gpio == 2) {
+// 0x03 seems incorrect
+//		reg |= (0x03);
+		reg |= (0x01);
+	}
+	else if (gpio == 3) {
+		reg |= (0x0c);
+	}
+	else {
+		reg |= (1 << gpio_dir_shift(gpio));
+	}
+
 	reg &= ~(1 << shift_val);
 	reg |= (value << shift_val);
-	gpio_write_reg(h, reg);
+	gpio_write_reg(h, reg, gpio);
 }
 
 void gpio_in(libusb_device_handle *h, int gpio, int pullup)
 {
-	int shift_dir = gpio_dir_shift(gpio);
+	unsigned char reg = gpio_read_reg(h, gpio);
  	int shift_val = gpio_val_shift(gpio);
 
-	unsigned char reg = gpio_read_reg(h);
-	reg &= ~(1 << shift_dir);
+	if (gpio == 2) {
+// 0x03 seems incorrect
+//		reg &= ~(0x03);
+		reg &= ~(0x01);
+	}
+	else if (gpio == 3) {
+		reg &= ~(0x0c);
+	}
+	else {
+		reg &= ~(1 << gpio_dir_shift(gpio));
+	}
+
 	reg &= ~(1 << shift_val);
 	reg |= (pullup << shift_val);
-	gpio_write_reg(h, reg);
+	gpio_write_reg(h, reg, gpio);
 }
 
 int gpio_read(libusb_device_handle *h, int gpio)
 {
-	unsigned char r = gpio_read_reg(h);
+	unsigned char r = gpio_read_reg(h, gpio);
+
 	int shift = gpio_val_shift(gpio);
 	return (r & (1<<shift));
 }
-
