@@ -17,7 +17,7 @@
 #include <getopt.h>
 
 
-#define I_VENDOR_NUM        0x67b
+#define I_VENDOR_NUM        0x067b
 #define I_PRODUCT_NUM       0x2303
 
 
@@ -62,13 +62,13 @@ char gpio_read_reg(libusb_device_handle *h, int gpio)
 	return buf;
 }
 
-void gpio_write_reg(libusb_device_handle *h, unsigned char reg, int gpio)
+void gpio_write_reg(libusb_device_handle *h, unsigned char reg, int gpio, int dir_value_ctrl)
 {
 	int bytes = libusb_control_transfer(
 		h,             // handle obtained with usb_open()
 		VENDOR_WRITE_REQUEST_TYPE, // bRequestType
 		VENDOR_WRITE_REQUEST,      // bRequest
-		(gpio <= 1) ? 0x0001 : 0x0d0d,   // wValue
+		(gpio <= 1) ? 0x0001 : (0x0c0c | dir_value_ctrl),   // wValue
 		reg,              // wIndex
 		0,             // pointer to destination buffer
 		0,  // wLength
@@ -104,7 +104,7 @@ void gpio_out(libusb_device_handle *h, int gpio, int value)
  	int shift_val = gpio_val_shift(gpio);
 
 	if (gpio == 2) {
-// 0x03 seems incorrect
+// Something should be done to switch the pin mode back to output.
 //		reg |= (0x03);
 		reg |= (0x01);
 	}
@@ -117,7 +117,7 @@ void gpio_out(libusb_device_handle *h, int gpio, int value)
 
 	reg &= ~(1 << shift_val);
 	reg |= (value << shift_val);
-	gpio_write_reg(h, reg, gpio);
+	gpio_write_reg(h, reg, gpio, 0x0101);
 }
 
 void gpio_in(libusb_device_handle *h, int gpio, int pullup)
@@ -125,10 +125,9 @@ void gpio_in(libusb_device_handle *h, int gpio, int pullup)
 	unsigned char reg = gpio_read_reg(h, gpio);
  	int shift_val = gpio_val_shift(gpio);
 
+// Not sure what's wrong. When 2 or 3 is set to -in, both become -in.
 	if (gpio == 2) {
-// 0x03 seems incorrect
-//		reg &= ~(0x03);
-		reg &= ~(0x01);
+		reg &= ~(0x03);
 	}
 	else if (gpio == 3) {
 		reg &= ~(0x0c);
@@ -139,7 +138,7 @@ void gpio_in(libusb_device_handle *h, int gpio, int pullup)
 
 	reg &= ~(1 << shift_val);
 	reg |= (pullup << shift_val);
-	gpio_write_reg(h, reg, gpio);
+	gpio_write_reg(h, reg, gpio, 0x0000);
 }
 
 int gpio_read(libusb_device_handle *h, int gpio)
